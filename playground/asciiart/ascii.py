@@ -6,22 +6,21 @@ A python program that convert images to ASCII art.
 Author: Mahesh Venkitachalam
 """
 
-import sys, random, argparse
-import numpy as np
-import math
+import argparse
 
+import numpy as np
 from PIL import Image
 
 # gray scale level values from:
 # http://paulbourke.net/dataformats/asciiart/
 
 # 70 levels of gray
-gscale1 = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+gscale1 = r"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
 # 10 levels of gray
 gscale2 = '@%#*+=-:. '
 
 
-def getAverageL(image):
+def get_average_luminosity(image):
     """
     Given PIL Image, return average value of grayscale value
     """
@@ -33,29 +32,29 @@ def getAverageL(image):
     return np.average(im.reshape(w * h))
 
 
-def convertImageToAscii(fileName, cols, scale, moreLevels):
+def convert_image_to_ascii(file_name, cols, scale, more_levels):
     """
     Given Image and dims (rows, cols) returns an m*n list of Images
     """
     # declare globals
     global gscale1, gscale2
     # open image and convert to grayscale
-    image = Image.open(fileName).convert('L')
+    image = Image.open(file_name).convert('L')
     # store dimensions
-    W, H = image.size[0], image.size[1]
-    print("input image dims: {} x {}".format(W, H))
+    raw_w, raw_h = image.size[0], image.size[1]
+    print("input image dims: {} x {}".format(raw_w, raw_h))
     # compute width of tile
-    w = W / cols
+    w = raw_w / cols
     # compute tile height based on aspect ratio and scale
     h = w / scale
     # compute number of rows
-    rows = int(H / h)
+    rows = int(raw_h / h)
 
     print("cols: {}, rows: {}".format(cols, rows))
     print("tile dims: {} x {}".format(w, h))
 
     # check if image size is too small
-    if cols > W or rows > H:
+    if cols > raw_w or rows > raw_h:
         print("Image too small for specified cols!")
         exit(0)
 
@@ -67,7 +66,7 @@ def convertImageToAscii(fileName, cols, scale, moreLevels):
         y2 = int((j + 1) * h)
         # correct last tile
         if j == rows - 1:
-            y2 = H
+            y2 = raw_h
         # append an empty string
         aimg.append("")
         for i in range(cols):
@@ -76,13 +75,14 @@ def convertImageToAscii(fileName, cols, scale, moreLevels):
             x2 = int((i + 1) * w)
             # correct last tile
             if i == cols - 1:
-                x2 = W
+                x2 = raw_w
             # crop image to extract tile
             img = image.crop((x1, y1, x2, y2))
             # get average luminance
-            avg = int(getAverageL(img))
+            avg = int(get_average_luminosity(img))
+            print(avg)
             # look up ascii char
-            if moreLevels:
+            if more_levels:
                 gsval = gscale1[int((avg * 69) / 255)]
             else:
                 gsval = gscale2[int((avg * 9) / 255)]
@@ -96,8 +96,9 @@ def convertImageToAscii(fileName, cols, scale, moreLevels):
 # main() function
 def main():
     # create parser
-    descStr = "This program converts an image into ASCII art."
-    parser = argparse.ArgumentParser(description=descStr)
+    desc_str = "This program converts an image into ASCII art."
+
+    parser = argparse.ArgumentParser(description=desc_str)
     # add expected arguments
     parser.add_argument('--file', dest='imgFile', required=True)
     parser.add_argument('--scale', dest='scale', required=False)
@@ -108,11 +109,11 @@ def main():
     # parse args
     args = parser.parse_args()
 
-    imgFile = args.imgFile
+    img_file = args.imgFile
     # set output file
-    outFile = 'out.txt'
+    out_file = 'out.txt'
     if args.outFile:
-        outFile = args.outFile
+        out_file = args.outFile
     # set scale default as 0.43 which suits a Courier font
     scale = 0.43
     if args.scale:
@@ -124,16 +125,16 @@ def main():
 
     print('generating ASCII art...')
     # convert image to ascii txt
-    aimg = convertImageToAscii(imgFile, cols, scale, args.moreLevels)
+    aimg = convert_image_to_ascii(img_file, cols, scale, args.moreLevels)
 
     # open file
-    f = open(outFile, 'w')
+    f = open(out_file, 'w')
     # write to file
     for row in aimg:
         f.write(row + '\n')
     # cleanup
     f.close()
-    print("ASCII art written to {}.".format(outFile))
+    print("ASCII art written to {}.".format(out_file))
 
 
 # call main
