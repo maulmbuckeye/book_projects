@@ -80,7 +80,6 @@ def convert_image_to_ascii(file_name, cols, scale, more_levels):
             img = image.crop((x1, y1, x2, y2))
             # get average luminance
             avg = int(get_average_luminosity(img))
-            print(avg)
             # look up ascii char
             if more_levels:
                 gsval = gscale1[int((avg * 69) / 255)]
