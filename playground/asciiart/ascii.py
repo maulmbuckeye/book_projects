@@ -14,11 +14,6 @@ from PIL import Image
 # gray scale level values from:
 # http://paulbourke.net/dataformats/asciiart/
 
-# 70 levels of gray
-gscale1 = r"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
-# 10 levels of gray
-gscale2 = '@%#*+=-:. '
-
 
 def get_average_luminosity(image):
     """
@@ -32,64 +27,86 @@ def get_average_luminosity(image):
     return np.average(im.reshape(w * h))
 
 
-def convert_image_to_ascii(file_name, cols, scale, more_levels):
-    """
-    Given Image and dims (rows, cols) returns an m*n list of Images
-    """
-    # declare globals
-    global gscale1, gscale2
-    # open image and convert to grayscale
-    image = Image.open(file_name).convert('L')
-    # store dimensions
-    raw_w, raw_h = image.size[0], image.size[1]
-    print("input image dims: {} x {}".format(raw_w, raw_h))
-    # compute width of tile
-    w = raw_w / cols
-    # compute tile height based on aspect ratio and scale
-    h = w / scale
-    # compute number of rows
-    rows = int(raw_h / h)
+class EncoderToAscii:
+    # 70 levels of gray
+    gscale1 = r"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+    # 10 levels of gray
+    gscale2 = '@%#*+=-:. '
 
-    print("cols: {}, rows: {}".format(cols, rows))
-    print("tile dims: {} x {}".format(w, h))
+    def __init__(self, more_levels):
+        self.more_levels = more_levels
 
-    # check if image size is too small
-    if cols > raw_w or rows > raw_h:
-        print("Image too small for specified cols!")
-        exit(0)
+    def encode(self, value):
+        if self.more_levels:
+            gsval = self.gscale1[int((value * 69) / 255)]
+        else:
+            gsval = self.gscale2[int((value * 9) / 255)]
+        return gsval
 
-    # ascii image is a list of character strings
-    aimg = []
-    # generate list of dimensions
-    for j in range(rows):
-        y1 = int(j * h)
-        y2 = int((j + 1) * h)
+
+class Converter:
+
+    file_name = ""
+
+    def __init__(self, file_name, more_levels):
+        self.file_name = file_name
+        self.raw_h = 0
+        self.raw_w = 0
+        self.image = None
+        self.height_of_cell = 0
+        self.width_of_cell = 0
+        self.encoder = EncoderToAscii(more_levels)
+
+    def convert_image_to_ascii(self, cols, scale):
+        """
+        Given Image and dims (rows, cols) returns an m*n list of Images
+        """
+
+        # convert to grayscale
+        self.image = Image.open(self.file_name).convert('L')
+
+        self.raw_w, self.raw_h = self.image.size[0], self.image.size[1]
+        print("input image dims: {} x {}".format(self.raw_w, self.raw_h))
+        # compute width of tile
+        self.width_of_cell = self.raw_w / cols
+        # compute tile height based on aspect ratio and scale
+        self.height_of_cell = self.width_of_cell / scale
+        # compute number of rows
+        rows = int(self.raw_h / self.height_of_cell)
+
+        print("cols: {}, rows: {}".format(cols, rows))
+        print("tile dims: {} x {}".format(self.width_of_cell, self.height_of_cell))
+
+        # check if image size is too small
+        if cols > self.raw_w or rows > self.raw_h:
+            print("Image too small for specified cols!")
+            exit(0)
+
+        text_image = []
+        for j in range(rows):
+            text_image.append("")
+
+            for i in range(cols):
+                title = self.crop_image_for_tile_ij(i, j)
+                avg = int(get_average_luminosity(title))
+                text_image[j] += self.encoder.encode(avg)
+
+        return text_image
+
+    def crop_image_for_tile_ij(self,  i, j):
+        x1, x2 = self.get_range(i, self.width_of_cell, self.raw_w)
+        y1, y2 = self.get_range(j, self.height_of_cell, self.raw_h)
+
+        img = self.image.crop((x1, y1, x2, y2))
+        return img
+
+    def get_range(self, index, length, max_length):
+        r1 = int(index * length)
+        r2 = int((index + 1) * length)
         # correct last tile
-        if j == rows - 1:
-            y2 = raw_h
-        # append an empty string
-        aimg.append("")
-        for i in range(cols):
-            # crop image to tile
-            x1 = int(i * w)
-            x2 = int((i + 1) * w)
-            # correct last tile
-            if i == cols - 1:
-                x2 = raw_w
-            # crop image to extract tile
-            img = image.crop((x1, y1, x2, y2))
-            # get average luminance
-            avg = int(get_average_luminosity(img))
-            # look up ascii char
-            if more_levels:
-                gsval = gscale1[int((avg * 69) / 255)]
-            else:
-                gsval = gscale2[int((avg * 9) / 255)]
-            # append ascii char to string
-            aimg[j] += gsval
+        r2 = min(r2, max_length)
 
-    # return txt image
-    return aimg
+        return r1, r2
 
 
 # main() function
@@ -99,20 +116,19 @@ def main():
 
     parser = argparse.ArgumentParser(description=desc_str)
     # add expected arguments
-    parser.add_argument('--file', dest='imgFile', required=True)
+    parser.add_argument('--file', dest='img_file', required=True)
     parser.add_argument('--scale', dest='scale', required=False)
-    parser.add_argument('--out', dest='outFile', required=False)
+    parser.add_argument('--out', dest='out_file', required=False)
     parser.add_argument('--cols', dest='cols', required=False)
     parser.add_argument('--morelevels', dest='moreLevels', action='store_true')
 
     # parse args
     args = parser.parse_args()
 
-    img_file = args.imgFile
     # set output file
     out_file = 'out.txt'
-    if args.outFile:
-        out_file = args.outFile
+    if args.out_file:
+        out_file = args.out_file
     # set scale default as 0.43 which suits a Courier font
     scale = 0.43
     if args.scale:
@@ -124,7 +140,8 @@ def main():
 
     print('generating ASCII art...')
     # convert image to ascii txt
-    aimg = convert_image_to_ascii(img_file, cols, scale, args.moreLevels)
+    c = Converter(args.img_file, args.moreLevels)
+    aimg = c.convert_image_to_ascii(cols, scale)
 
     # open file
     f = open(out_file, 'w')
