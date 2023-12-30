@@ -122,21 +122,13 @@ def tick(frameNum, pts, head, boids):
 
 # main() function
 def main():
-    # use sys.argv if needed
     print('starting boids...')
 
     parser = argparse.ArgumentParser(description="Implementing Craig Reynold's Boids...")
-    # add arguments
-    parser.add_argument('--num-boids', dest='N', required=False)
+    parser.add_argument('--num-boids', dest='number_of_boids', default=75)
     args = parser.parse_args()
 
-    # number of boids
-    N = 100
-    if args.N:
-        N = int(args.N)
-
-    # create boids
-    boids = Boids(N)
+    boids = Boids(args.number_of_boids)
 
     # setup plot
     fig = plt.figure()
